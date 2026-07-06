@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FastDiffCopy Web</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d8dde6;
+      --text: #20242c;
+      --muted: #667085;
+      --accent: #1166cc;
+      --accent-strong: #0b4ea2;
+      --danger: #b42318;
+      --ok: #137333;
+      --shadow: 0 10px 30px rgba(20, 27, 40, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(360px, 460px) minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      padding: 18px;
+      overflow: auto;
+    }
+
+    main {
+      padding: 18px;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      gap: 12px;
+      min-width: 0;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: 22px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 18px 0 10px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .slot {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fbfcfe;
+    }
+
+    .slot-head, .toolbar, .status {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .slot-title {
+      font-weight: 700;
+      min-width: 84px;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 7px;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    button:hover { border-color: #9aa8bd; }
+    button.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      font-weight: 700;
+    }
+    button.primary:hover { background: var(--accent-strong); }
+    button:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .path {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .notice {
+      border: 1px solid #f0d98c;
+      background: #fff8d6;
+      color: #5f4600;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    progress {
+      width: 100%;
+      height: 12px;
+      accent-color: var(--accent);
+    }
+
+    .log {
+      min-height: 240px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f1720;
+      color: #dbe7f5;
+      font: 13px/1.5 Consolas, "SFMono-Regular", monospace;
+      padding: 12px;
+      white-space: pre-wrap;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat b {
+      display: block;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    dialog {
+      width: min(1180px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      border: 0;
+      border-radius: 10px;
+      padding: 0;
+      box-shadow: 0 24px 80px rgba(0,0,0,.28);
+    }
+
+    dialog::backdrop { background: rgba(9, 13, 20, .55); }
+
+    .modal-head, .modal-foot, .modal-checks {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .modal-foot {
+      border-top: 1px solid var(--line);
+      border-bottom: 0;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .modal-checks {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      align-items: center;
+      border-top: 1px solid var(--line);
+    }
+
+    .modal-title {
+      font-weight: 800;
+      word-break: break-all;
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #f8fafc;
+    }
+
+    .preview {
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+
+    .preview h3 {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 13px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+
+    .preview-body {
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      padding: 10px;
+      overflow: auto;
+    }
+
+    .preview-body img, .preview-body iframe {
+      max-width: 100%;
+      max-height: 100%;
+      border: 0;
+    }
+
+    .preview-body pre {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      white-space: pre-wrap;
+      overflow: auto;
+      font: 13px/1.5 Consolas, monospace;
+    }
+
+    .muted { color: var(--muted); }
+    .ok { color: var(--ok); }
+    .danger { color: var(--danger); }
+
+    @media (max-width: 880px) {
+      .app { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .preview-grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: repeat(2, minmax(110px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <h1>FastDiffCopy Web</h1>
+      <div id="supportNotice" class="notice" hidden></div>
+      <section>
+        <h2>コピー元</h2>
+        <div id="sources"></div>
+      </section>
+      <section>
+        <h2>コピー先</h2>
+        <div class="slot">
+          <div class="slot-head">
+            <span class="slot-title">コピー先</span>
+            <button id="pickDest">フォルダ</button>
+          </div>
+          <div id="destPath" class="path">未選択</div>
+        </div>
+      </section>
+    </aside>
+
+    <main>
+      <div class="toolbar">
+        <button id="copyBtn" class="primary">コピー</button>
+        <button id="resetBtn">ログとパスを消去</button>
+      </div>
+      <div>
+        <progress id="progress" max="100" value="0"></progress>
+        <div id="status" class="muted">コピー元を1つ以上、コピー先を1つ選択してください。</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="statNew">0</b><span>新規</span></div>
+        <div class="stat"><b id="statSame">0</b><span>同名同サイズ</span></div>
+        <div class="stat"><b id="statConflict">0</b><span>確認</span></div>
+        <div class="stat"><b id="statDone">0</b><span>処理済み</span></div>
+      </div>
+      <div id="log" class="log"></div>
+    </main>
+  </div>
+
+  <dialog id="conflictDialog">
+    <div class="modal-head">
+      <div id="dialogTitle" class="modal-title"></div>
+      <div id="dialogMeta" class="muted"></div>
+    </div>
+    <div class="preview-grid">
+      <div class="preview">
+        <h3>コピー元</h3>
+        <div id="srcPreview" class="preview-body"></div>
+      </div>
+      <div class="preview">
+        <h3>コピー先</h3>
+        <div id="dstPreview" class="preview-body"></div>
+      </div>
+    </div>
+    <div class="modal-checks">
+      <label><input id="keepSrc" type="checkbox" checked> コピー元を残す</label>
+      <label><input id="keepDst" type="checkbox" checked> コピー先を残す</label>
+      <span class="muted">両方残す場合はコピー元側を別名でコピーします。</span>
+    </div>
+    <div class="modal-foot">
+      <span id="dialogError" class="danger"></span>
+      <div>
+        <button id="cancelConflict">キャンセル</button>
+        <button id="decideConflict" class="primary">決定</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const SOURCE_SLOT_COUNT = 7;
+    const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "bmp", "gif", "webp"]);
+    const TEXT_EXTS = new Set(["txt", "csv", "tsv", "log", "md", "json", "xml", "html", "css", "js", "py"]);
+    const PDF_EXTS = new Set(["pdf"]);
+
+    const state = {
+      sources: Array.from({ length: SOURCE_SLOT_COUNT }, (_, index) => ({ index, label: `コピー元${index + 1}`, kind: null })),
+      dest: null,
+      busy: false,
+      stats: { new: 0, same: 0, conflict: 0, done: 0 },
+    };
+
+    const sourcesEl = document.querySelector("#sources");
+    const destPathEl = document.querySelector("#destPath");
+    const logEl = document.querySelector("#log");
+    const statusEl = document.querySelector("#status");
+    const progressEl = document.querySelector("#progress");
+    const supportNotice = document.querySelector("#supportNotice");
+
+    init();
+
+    function init() {
+      if (!("showDirectoryPicker" in window) || !("showOpenFilePicker" in window)) {
+        supportNotice.hidden = false;
+        supportNotice.textContent = "Edge または Chrome のHTTPSページで開いてください。";
+      }
+
+      renderSourceSlots();
+      document.querySelector("#pickDest").addEventListener("click", pickDestination);
+      document.querySelector("#copyBtn").addEventListener("click", runCopy);
+      document.querySelector("#resetBtn").addEventListener("click", resetAll);
+      writeLog("待機中");
+    }
+
+    function renderSourceSlots() {
+      sourcesEl.innerHTML = "";
+      for (const source of state.sources) {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.innerHTML = `
+          <div class="slot-head">
+            <span class="slot-title">${source.label}</span>
+            <button data-folder="${source.index}">フォルダ</button>
+            <button data-zip="${source.index}">ZIP</button>
+          </div>
+          <div class="path" id="sourcePath${source.index}">未選択</div>
+        `;
+        sourcesEl.appendChild(slot);
+      }
+
+      sourcesEl.querySelectorAll("[data-folder]").forEach(button => {
+        button.addEventListener("click", () => pickSourceFolder(Number(button.dataset.folder)));
+      });
+      sourcesEl.querySelectorAll("[data-zip]").forEach(button => {
+        button.addEventListener("click", () => pickSourceZip(Number(button.dataset.zip)));
+      });
+    }
+
+    async function pickSourceFolder(index) {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      state.sources[index] = { index, label: `コピー元${index + 1}`, kind: "folder", handle, name: handle.name };
+      updateSourcePath(index);
+    }
+
+    async function pickSourceZip(index) {
+      const [handle] = await window.showOpenFilePicker({
+        multiple: false,
+        types: [{ description: "ZIP", accept: { "application/zip": [".zip"] } }],
+      });
+      const file = await handle.getFile();
+      state.sources[index] = { index, label: `コピー元${index + 1}`, kind: "zip", handle, file, name: file.name };
+      updateSourcePath(index);
+    }
+
+    async function pickDestination() {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      state.dest = { kind: "folder", handle, name: handle.name };
+      destPathEl.textContent = handle.name;
+    }
+
+    function updateSourcePath(index) {
+      const source = state.sources[index];
+      document.querySelector(`#sourcePath${index}`).textContent = source.kind ? `${source.kind.toUpperCase()}: ${source.name}` : "未選択";
+    }
+
+    async function runCopy() {
+      if (state.busy) return;
+      const activeSources = state.sources.filter(source => source.kind);
+      if (!activeSources.length) return alert("コピー元を1つ以上選択してください。");
+      if (!state.dest) return alert("コピー先フォルダを選択してください。");
+
+      state.busy = true;
+      resetStats();
+      setButtonsDisabled(true);
+      setProgress(0);
+      writeLog(`=== ${new Date().toLocaleString()} コピー開始 ===`);
+
+      try {
+        for (let sourceIndex = 0; sourceIndex < activeSources.length; sourceIndex++) {
+          const source = activeSources[sourceIndex];
+          setStatus(`${source.label}を読み込んでいます...`);
+          const sourceEntries = await collectSourceEntries(source);
+          setStatus(`${source.label}を比較しています...`);
+          const destMap = await collectDestEntries(state.dest.handle);
+          const plans = buildPlans(sourceEntries, destMap);
+          logPlanSummary(source.label, plans);
+          await processPlans(plans, sourceIndex, activeSources.length);
+        }
+        setProgress(100);
+        setStatus("完了しました。");
+        writeLog(`=== ${new Date().toLocaleString()} 完了 ===`);
+      } catch (error) {
+        setStatus("エラーが発生しました。");
+        writeLog(`エラー: ${error.message || error}`);
+        alert(error.message || error);
+      } finally {
+        state.busy = false;
+        setButtonsDisabled(false);
+      }
+    }
+
+    async function collectSourceEntries(source) {
+      if (source.kind === "folder") {
+        return await listDirectoryEntries(source.handle, "");
+      }
+      if (source.kind === "zip") {
+        writeLog(`${source.label} ZIPを読み込み: ${source.name}`);
+        return await readZipFile(source.file);
+      }
+      return [];
+    }
+
+    async function listDirectoryEntries(dirHandle, prefix) {
+      const entries = [];
+      for await (const [name, handle] of dirHandle.entries()) {
+        const relPath = prefix ? `${prefix}/${name}` : name;
+        if (handle.kind === "file") {
+          const file = await handle.getFile();
+          entries.push({
+            type: "file",
+            relPath,
+            size: file.size,
+            getFile: () => handle.getFile(),
+          });
+        } else if (handle.kind === "directory") {
+          entries.push({
+            type: "directory",
+            relPath,
+            size: 0,
+          });
+          entries.push(...await listDirectoryEntries(handle, relPath));
+        }
+      }
+      return entries.sort(compareEntries);
+    }
+
+    async function collectDestEntries(dirHandle) {
+      const entries = await listDirectoryEntries(dirHandle, "");
+      return new Map(entries.map(entry => [entry.relPath, entry]));
+    }
+
+    function buildPlans(sourceEntries, destMap) {
+      return sourceEntries.map(src => {
+        const dst = destMap.get(src.relPath);
+        if (src.type === "directory") {
+          return { src, dst, action: dst ? "directory_exists" : "create_directory" };
+        }
+        if (!dst) return { src, dst: null, action: "copy" };
+        if (dst.type === "directory") return { src, dst, action: "conflict" };
+        if (src.size === dst.size) return { src, dst, action: "same_size" };
+        return { src, dst, action: "conflict" };
+      });
+    }
+
+    async function processPlans(plans, sourceIndex, totalSources) {
+      if (!plans.length) {
+        setProgress((sourceIndex + 1) / totalSources * 100);
+        return;
+      }
+
+      for (let planIndex = 0; planIndex < plans.length; planIndex++) {
+        const plan = plans[planIndex];
+        setProgress((sourceIndex + planIndex / plans.length) / totalSources * 100);
+
+        if (plan.action === "directory_exists") {
+          continue;
+        }
+
+        if (plan.action === "create_directory") {
+          await createDestinationDirectory(plan.src.relPath);
+          state.stats.new++;
+          state.stats.done++;
+          updateStats();
+          writeLog(`フォルダ作成: ${plan.src.relPath}`);
+          continue;
+        }
+
+        if (plan.action === "same_size") {
+          state.stats.same++;
+          state.stats.done++;
+          updateStats();
+          writeLog(`スキップ: ${plan.src.relPath}`);
+          continue;
+        }
+
+        if (plan.action === "conflict") {
+          state.stats.conflict++;
+          updateStats();
+          const choice = await askConflict(plan);
+          if (choice === "keep_destination") {
+            state.stats.done++;
+            updateStats();
+            writeLog(`コピー先を残す: ${plan.src.relPath}`);
+            continue;
+          }
+          if (choice === "skip") {
+            writeLog(`確認をキャンセル: ${plan.src.relPath}`);
+            continue;
+          }
+          if (choice === "rename") {
+            const targetPath = await uniqueDestinationPath(plan.src.relPath);
+            await writeToDestination(targetPath, await plan.src.getFile());
+            state.stats.done++;
+            updateStats();
+            writeLog(`両方残す: ${plan.src.relPath} -> ${targetPath.split("/").pop()}`);
+            continue;
+          }
+        } else {
+          state.stats.new++;
+          updateStats();
+        }
+
+        await writeToDestination(plan.src.relPath, await plan.src.getFile());
+        state.stats.done++;
+        updateStats();
+        writeLog(`コピー: ${plan.src.relPath}`);
+      }
+    }
+
+    async function writeToDestination(relPath, blob) {
+      const parts = relPath.split("/").filter(Boolean);
+      const fileName = parts.pop();
+      const dir = await getDestinationDirectory(parts);
+      const fileHandle = await dir.getFileHandle(fileName, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(blob);
+      await writable.close();
+    }
+
+    async function createDestinationDirectory(relPath) {
+      await getDestinationDirectory(relPath.split("/").filter(Boolean));
+    }
+
+    async function getDestinationDirectory(parts) {
+      let dir = state.dest.handle;
+      for (const part of parts) {
+        dir = await dir.getDirectoryHandle(part, { create: true });
+      }
+      return dir;
+    }
+
+    async function uniqueDestinationPath(relPath) {
+      const slash = relPath.lastIndexOf("/");
+      const dir = slash >= 0 ? relPath.slice(0, slash + 1) : "";
+      const name = slash >= 0 ? relPath.slice(slash + 1) : relPath;
+      const dot = name.lastIndexOf(".");
+      const stem = dot > 0 ? name.slice(0, dot) : name;
+      const ext = dot > 0 ? name.slice(dot) : "";
+      const destMap = await collectDestEntries(state.dest.handle);
+      for (let index = 1; index < 10000; index++) {
+        const candidate = `${dir}${stem}_copy${index}${ext}`;
+        if (!destMap.has(candidate)) return candidate;
+      }
+      throw new Error("別名ファイル名を作成できませんでした。");
+    }
+
+    function askConflict(plan) {
+      return new Promise(async resolve => {
+        const dialog = document.querySelector("#conflictDialog");
+        const keepSrc = document.querySelector("#keepSrc");
+        const keepDst = document.querySelector("#keepDst");
+        const error = document.querySelector("#dialogError");
+        keepSrc.checked = true;
+        keepDst.checked = true;
+        error.textContent = "";
+        document.querySelector("#dialogTitle").textContent = plan.src.relPath;
+        document.querySelector("#dialogMeta").textContent = `コピー元: ${formatSize(plan.src.size)} / コピー先: ${formatSize(plan.dst.size)}`;
+        await renderPreview(document.querySelector("#srcPreview"), await plan.src.getFile());
+        await renderPreview(document.querySelector("#dstPreview"), await plan.dst.getFile());
+
+        const cleanup = () => {
+          decide.removeEventListener("click", onDecide);
+          cancel.removeEventListener("click", onCancel);
+          dialog.removeEventListener("cancel", onCancel);
+        };
+        const finish = result => {
+          cleanup();
+          dialog.close();
+          resolve(result);
+        };
+        const onCancel = event => {
+          if (event) event.preventDefault();
+          finish("skip");
+        };
+        const onDecide = () => {
+          if (!keepSrc.checked && !keepDst.checked) {
+            error.textContent = "残すファイルを少なくとも1つ選んでください。";
+            return;
+          }
+          if (keepSrc.checked && keepDst.checked) return finish("rename");
+          if (keepSrc.checked) return finish("overwrite");
+          finish("keep_destination");
+        };
+
+        const decide = document.querySelector("#decideConflict");
+        const cancel = document.querySelector("#cancelConflict");
+        decide.addEventListener("click", onDecide);
+        cancel.addEventListener("click", onCancel);
+        dialog.addEventListener("cancel", onCancel);
+        dialog.showModal();
+      });
+    }
+
+    async function renderPreview(container, file) {
+      container.innerHTML = "";
+      const ext = extensionOf(file.name);
+      if (IMAGE_EXTS.has(ext)) {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+        container.appendChild(img);
+        return;
+      }
+      if (PDF_EXTS.has(ext)) {
+        const frame = document.createElement("iframe");
+        frame.src = URL.createObjectURL(file);
+        container.appendChild(frame);
+        return;
+      }
+      if (TEXT_EXTS.has(ext)) {
+        const pre = document.createElement("pre");
+        pre.textContent = await file.slice(0, 120000).text();
+        container.appendChild(pre);
+        return;
+      }
+      const div = document.createElement("div");
+      div.className = "muted";
+      div.textContent = `${file.name}\n${formatSize(file.size)}`;
+      container.appendChild(div);
+    }
+
+    async function readZipFile(file) {
+      const buffer = await file.arrayBuffer();
+      const view = new DataView(buffer);
+      const eocdOffset = findEndOfCentralDirectory(view);
+      const entryCount = view.getUint16(eocdOffset + 10, true);
+      const centralDirOffset = view.getUint32(eocdOffset + 16, true);
+      const entries = [];
+      let offset = centralDirOffset;
+
+      for (let i = 0; i < entryCount; i++) {
+        if (view.getUint32(offset, true) !== 0x02014b50) throw new Error("ZIPの中央ディレクトリを読み取れません。");
+        const method = view.getUint16(offset + 10, true);
+        const compressedSize = view.getUint32(offset + 20, true);
+        const uncompressedSize = view.getUint32(offset + 24, true);
+        const nameLength = view.getUint16(offset + 28, true);
+        const extraLength = view.getUint16(offset + 30, true);
+        const commentLength = view.getUint16(offset + 32, true);
+        const localHeaderOffset = view.getUint32(offset + 42, true);
+        const name = decodeZipName(buffer.slice(offset + 46, offset + 46 + nameLength));
+        offset += 46 + nameLength + extraLength + commentLength;
+
+        if (name.endsWith("/")) {
+          entries.push({
+            type: "directory",
+            relPath: name.replaceAll("\\", "/").replace(/\/+$/, ""),
+            size: 0,
+          });
+          continue;
+        }
+        entries.push({
+          type: "file",
+          relPath: name.replaceAll("\\", "/"),
+          size: uncompressedSize,
+          getFile: async () => {
+            const blob = await extractZipEntry(buffer, localHeaderOffset, compressedSize, method);
+            return new File([blob], name.split("/").pop(), { type: guessMime(name) });
+          },
+        });
+      }
+      return addImplicitDirectories(entries).sort(compareEntries);
+    }
+
+    function addImplicitDirectories(entries) {
+      const result = [...entries];
+      const seen = new Set(entries.filter(entry => entry.type === "directory").map(entry => entry.relPath));
+      for (const entry of entries) {
+        const parts = entry.relPath.split("/").filter(Boolean);
+        parts.pop();
+        let current = "";
+        for (const part of parts) {
+          current = current ? `${current}/${part}` : part;
+          if (!seen.has(current)) {
+            seen.add(current);
+            result.push({ type: "directory", relPath: current, size: 0 });
+          }
+        }
+      }
+      return result;
+    }
+
+    function compareEntries(a, b) {
+      if (a.type !== b.type) return a.type === "directory" ? -1 : 1;
+      return a.relPath.localeCompare(b.relPath, "ja");
+    }
+
+    function findEndOfCentralDirectory(view) {
+      for (let offset = view.byteLength - 22; offset >= Math.max(0, view.byteLength - 66000); offset--) {
+        if (view.getUint32(offset, true) === 0x06054b50) return offset;
+      }
+      throw new Error("ZIPの終端情報を読み取れません。");
+    }
+
+    async function extractZipEntry(buffer, localHeaderOffset, compressedSize, method) {
+      const view = new DataView(buffer);
+      if (view.getUint32(localHeaderOffset, true) !== 0x04034b50) throw new Error("ZIPのローカルヘッダーを読み取れません。");
+      const nameLength = view.getUint16(localHeaderOffset + 26, true);
+      const extraLength = view.getUint16(localHeaderOffset + 28, true);
+      const dataOffset = localHeaderOffset + 30 + nameLength + extraLength;
+      const compressed = buffer.slice(dataOffset, dataOffset + compressedSize);
+      if (method === 0) return new Blob([compressed]);
+      if (method === 8) {
+        if (!("DecompressionStream" in window)) throw new Error("このブラウザではZIP展開に必要な機能が使えません。");
+        const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+        return await new Response(stream).blob();
+      }
+      throw new Error(`対応していないZIP圧縮方式です: ${method}`);
+    }
+
+    function decodeZipName(bytes) {
+      try {
+        return new TextDecoder("utf-8").decode(bytes);
+      } catch {
+        return new TextDecoder().decode(bytes);
+      }
+    }
+
+    function extensionOf(name) {
+      const dot = name.lastIndexOf(".");
+      return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
+    }
+
+    function guessMime(name) {
+      const ext = extensionOf(name);
+      if (IMAGE_EXTS.has(ext)) return `image/${ext === "jpg" ? "jpeg" : ext}`;
+      if (PDF_EXTS.has(ext)) return "application/pdf";
+      if (TEXT_EXTS.has(ext)) return "text/plain";
+      return "application/octet-stream";
+    }
+
+    function resetAll() {
+      state.sources = Array.from({ length: SOURCE_SLOT_COUNT }, (_, index) => ({ index, label: `コピー元${index + 1}`, kind: null }));
+      state.dest = null;
+      resetStats();
+      setProgress(0);
+      setStatus("コピー元を1つ以上、コピー先を1つ選択してください。");
+      renderSourceSlots();
+      destPathEl.textContent = "未選択";
+      logEl.textContent = "";
+      writeLog("待機中");
+    }
+
+    function resetStats() {
+      state.stats = { new: 0, same: 0, conflict: 0, done: 0 };
+      updateStats();
+    }
+
+    function updateStats() {
+      document.querySelector("#statNew").textContent = state.stats.new;
+      document.querySelector("#statSame").textContent = state.stats.same;
+      document.querySelector("#statConflict").textContent = state.stats.conflict;
+      document.querySelector("#statDone").textContent = state.stats.done;
+    }
+
+    function logPlanSummary(label, plans) {
+      const created = plans.filter(plan => plan.action === "copy").length;
+      const dirs = plans.filter(plan => plan.action === "create_directory").length;
+      const same = plans.filter(plan => plan.action === "same_size").length;
+      const conflict = plans.filter(plan => plan.action === "conflict").length;
+      writeLog(`${label}: 新規ファイル ${created} / 新規フォルダ ${dirs} / 同名同サイズ ${same} / サイズ違い確認 ${conflict}`);
+    }
+
+    function setButtonsDisabled(disabled) {
+      document.querySelectorAll(".app button").forEach(button => button.disabled = disabled);
+    }
+
+    function setProgress(value) {
+      progressEl.value = Math.max(0, Math.min(100, value));
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function writeLog(text) {
+      logEl.textContent += `${text}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function formatSize(size) {
+      let value = size;
+      for (const unit of ["B", "KB", "MB", "GB", "TB"]) {
+        if (value < 1024 || unit === "TB") return unit === "B" ? `${value} B` : `${value.toFixed(1)} ${unit}`;
+        value /= 1024;
+      }
+      return `${size} B`;
+    }
+  </script>
+</body>
+</html>
