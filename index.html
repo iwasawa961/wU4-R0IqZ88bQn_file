@@ -194,6 +194,12 @@
       flex-wrap: wrap;
     }
 
+    .file-openers {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
     .modal-checks {
       display: flex;
       gap: 18px;
@@ -329,7 +335,13 @@
       <span class="muted">両方残す場合はコピー元側を別名でコピーします。</span>
     </div>
     <div class="modal-foot">
-      <span id="dialogError" class="danger"></span>
+      <div>
+        <div class="file-openers">
+          <button id="openSrcFile">コピー元を開く</button>
+          <button id="openDstFile">コピー先を開く</button>
+        </div>
+        <span id="dialogError" class="danger"></span>
+      </div>
       <div>
         <button id="cancelConflict">キャンセル</button>
         <button id="decideConflict" class="primary">決定</button>
@@ -625,12 +637,20 @@
         error.textContent = "";
         document.querySelector("#dialogTitle").textContent = plan.src.relPath;
         document.querySelector("#dialogMeta").textContent = `コピー元: ${formatSize(plan.src.size)} / コピー先: ${formatSize(plan.dst.size)}`;
-        await renderPreview(document.querySelector("#srcPreview"), await plan.src.getFile());
-        await renderPreview(document.querySelector("#dstPreview"), await plan.dst.getFile());
+        const srcFile = await plan.src.getFile();
+        const dstFile = plan.dst.type === "file" ? await plan.dst.getFile() : null;
+        await renderPreview(document.querySelector("#srcPreview"), srcFile);
+        if (dstFile) {
+          await renderPreview(document.querySelector("#dstPreview"), dstFile);
+        } else {
+          document.querySelector("#dstPreview").textContent = "コピー先はフォルダです。";
+        }
 
         const cleanup = () => {
           decide.removeEventListener("click", onDecide);
           cancel.removeEventListener("click", onCancel);
+          openSrc.removeEventListener("click", onOpenSrc);
+          openDst.removeEventListener("click", onOpenDst);
           dialog.removeEventListener("cancel", onCancel);
         };
         const finish = result => {
@@ -651,14 +671,37 @@
           if (keepSrc.checked) return finish("overwrite");
           finish("keep_destination");
         };
+        const onOpenSrc = () => openFileForReview(srcFile);
+        const onOpenDst = () => {
+          if (dstFile) openFileForReview(dstFile);
+        };
 
         const decide = document.querySelector("#decideConflict");
         const cancel = document.querySelector("#cancelConflict");
+        const openSrc = document.querySelector("#openSrcFile");
+        const openDst = document.querySelector("#openDstFile");
+        openDst.disabled = !dstFile;
         decide.addEventListener("click", onDecide);
         cancel.addEventListener("click", onCancel);
+        openSrc.addEventListener("click", onOpenSrc);
+        openDst.addEventListener("click", onOpenDst);
         dialog.addEventListener("cancel", onCancel);
         dialog.showModal();
       });
+    }
+
+    function openFileForReview(file) {
+      const url = URL.createObjectURL(file);
+      const opened = window.open(url, "_blank", "noopener");
+      if (!opened) {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.name || "preview";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
 
     async function renderPreview(container, file) {
